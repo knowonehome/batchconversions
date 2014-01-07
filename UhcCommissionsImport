@@ -1,0 +1,52 @@
+select  v.IsPayee, 
+        v.PolicyNumber, 
+        v.Customer, 
+        v.LineOfBusiness, 
+        v.MonthPaid, 
+        switch( 
+           v.RateType = 1, v.Premium, 
+           v.RateType = 3, v.Premium, 
+           True, Null) as Premium, 
+        switch( 
+           v.RateType = 2, v.NumSubscribers, 
+           True, Null) as NumSubscribers, 
+        switch( 
+           v.RateType = 1, round(v.Rate*100)/10000.0, 
+           v.RateType = 3, round(v.AgencyCommission*10000/v.Premium)/10000.0, 
+           True, "") as AgencyPercent, 
+        switch( 
+           v.RateType = 2, v.[Rate]*v.SplitPercentage/100.0, 
+           True, "") as SubscriberRate, 
+        v.AgencyCommission, 
+        0 as LineNumber, 
+        Null as IsImported, 
+        Null as ErrDesc 
+from (  select  iif([General Compensation Type]='Override Detail','N','Y') as IsPayee, 
+                [Customer Id] as PolicyNumber, 
+                [Customer Name] as Customer,  
+		switch(
+			instr([Coverage Type],"Med")>0, "Medical",
+			instr([Coverage Type],"Lif")>0, "Life",
+			instr([Coverage Type],"Den")>0, "Dental",
+			instr([Coverage Type],"Vis")>0, "Vision",
+			instr([Coverage Type],"LTD")>0, "LTD",
+			instr([Coverage Type],"STD")>0, "STD",
+		) as [LineOfBusiness], 
+                [Bill Effective Date] as MonthPaid, 
+                [Paid Premium] as Premium, 
+                [Billed Subscriber Count] as NumSubscribers, 
+                switch( 
+                   instr([Rate],"%")>0, left([Rate],len([Rate])-1), 
+                   instr([Rate],"$")>0, right([Rate],len([Rate])-1), 
+                   instr([Rate],"S")>0, "0", 
+                   True, [Rate]) as [Rate], 
+                switch( 
+                   instr([Rate],"%")>0, 1, 
+                   instr([Rate],"$")>0, 2, 
+                   instr([Rate],"S")>0, 3, 
+                   True, 0) as RateType, 
+                [Paid Amount] as AgencyCommission, 
+                left([Split Percentage],len([Split Percentage])-1) as [SplitPercentage] 
+        from [File1] 
+        where len([Customer Name]) > 0) v 
+
